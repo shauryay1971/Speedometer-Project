@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time Fan RPM and Blade Tip Speed Dashboard with analog servo speedometer sync.">
+    <title>Fan RPM & Speedometer Dashboard</title>
+    
+    <!-- Google Fonts: Inter for UI, Orbitron for digital readouts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for professional dashboard icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Dashboard Header -->
+        <header class="app-header">
+            <div class="header-logo">
+                <i class="fa-solid fa-gauge-high header-icon"></i>
+                <div class="header-titles">
+                    <h1>AEROVANE</h1>
+                    <span class="subtitle">RPM & Tip Speed Telemetry</span>
+                </div>
+            </div>
+            
+            <div class="system-status-container">
+                <div class="port-info">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span id="port-name">Port: /dev/cu.usbmodemFX2348N1</span>
+                </div>
+                <div id="connection-status" class="status-pill disconnected">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Arduino Disconnected</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <main class="dashboard-grid">
+            <!-- Left Panel: Speedometer & Servo Visualizer -->
+            <section class="panel-column gauge-column">
+                <!-- Speedometer Gauge Card -->
+                <div class="glass-card main-gauge-card">
+                    <div class="card-header">
+                        <h2>Telemetry Speedometers</h2>
+                        <i class="fa-solid fa-circle-notch card-icon"></i>
+                    </div>
+                    
+                    <div class="gauges-container">
+                        <!-- RPM Speedometer -->
+                        <div class="gauge-column-wrapper">
+                            <div class="gauge-wrapper">
+                                <!-- SVG Circular Speedometer -->
+                                <svg class="speedometer-svg" viewBox="0 0 200 200">
+                                    <defs>
+                                        <linearGradient id="rpm-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="hsl(var(--color-primary))" />
+                                            <stop offset="100%" stop-color="hsl(var(--color-secondary))" />
+                                        </linearGradient>
+                                    </defs>
+                                    <!-- Track Circle -->
+                                    <circle class="gauge-track" cx="100" cy="100" r="80" 
+                                            stroke-dasharray="377" stroke-dashoffset="126" 
+                                            transform="rotate(120 100 100)" />
+                                    <!-- Colored Gradient Progress Circle -->
+                                    <circle id="gauge-progress" class="gauge-progress" cx="100" cy="100" r="80" 
+                                            stroke-dasharray="377" stroke-dashoffset="377" 
+                                            stroke="url(#rpm-gradient)"
+                                            transform="rotate(120 100 100)" />
+                                    <!-- Tick Marks -->
+                                    <circle cx="100" cy="100" r="72" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2 12" fill="none" transform="rotate(120 100 100)" />
+                                </svg>
+                                <!-- Needle -->
+                                <div id="speedometer-needle" class="needle"></div>
+                                <!-- Center Display -->
+                                <div class="gauge-center">
+                                    <div id="rpm-value" class="digital-value">0</div>
+                                    <div class="digital-unit">RPM</div>
+                                </div>
+                            </div>
+                            <div class="gauge-limits">
+                                <span>0 RPM</span>
+                                <span>3000 RPM</span>
+                            </div>
+                        </div>
+
+                        <!-- Velocity Speedometer (km/h) -->
+                        <div class="gauge-column-wrapper">
+                            <div class="gauge-wrapper">
+                                <!-- SVG Circular Speedometer -->
+                                <svg class="speedometer-svg" viewBox="0 0 200 200">
+                                    <defs>
+                                        <linearGradient id="speed-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="hsl(var(--color-secondary))" />
+                                            <stop offset="100%" stop-color="hsl(var(--color-danger))" />
+                                        </linearGradient>
+                                    </defs>
+                                    <!-- Track Circle -->
+                                    <circle class="gauge-track" cx="100" cy="100" r="80" 
+                                            stroke-dasharray="377" stroke-dashoffset="126" 
+                                            transform="rotate(120 100 100)" />
+                                    <!-- Colored Gradient Progress Circle -->
+                                    <circle id="speed-gauge-progress" class="gauge-progress speed-progress" cx="100" cy="100" r="80" 
+                                            stroke-dasharray="377" stroke-dashoffset="377" 
+                                            stroke="url(#speed-gradient)"
+                                            transform="rotate(120 100 100)" />
+                                    <!-- Tick Marks -->
+                                    <circle cx="100" cy="100" r="72" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2 12" fill="none" transform="rotate(120 100 100)" />
+                                </svg>
+                                <!-- Needle -->
+                                <div id="speed-needle" class="needle speed-needle"></div>
+                                <!-- Center Display -->
+                                <div class="gauge-center">
+                                    <div id="speed-value" class="digital-value">0.0</div>
+                                    <div class="digital-unit">km/h</div>
+                                </div>
+                            </div>
+                            <div class="gauge-limits">
+                                <span>0 km/h</span>
+                                <span>100 km/h</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Servo Virtual Needle Card -->
+                <div class="glass-card servo-card">
+                    <div class="card-header">
+                        <h2>Servo Position Sync</h2>
+                        <span class="badge">SG90 Output</span>
+                    </div>
+                    <div class="servo-visualization">
+                        <div class="servo-body">
+                            <div class="servo-shaft">
+                                <!-- Virtual Servo Horn (Needle) -->
+                                <div id="servo-horn" class="servo-horn"></div>
+                            </div>
+                        </div>
+                        <div class="servo-overlay-info">
+                            <div class="angle-display">
+                                <span id="servo-angle-text" class="digital-value-small">0</span><span class="deg-symbol">°</span>
+                            </div>
+                            <span class="label">Servo Angle (0° - 180°)</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Configurations & Calculated Speeds -->
+            <section class="panel-column telemetry-column">
+                <!-- Configuration Panel Card -->
+                <div class="glass-card config-card">
+                    <div class="card-header">
+                        <h2>System Configuration</h2>
+                        <i class="fa-solid fa-sliders card-icon"></i>
+                    </div>
+                    
+                    <form id="config-form" class="config-form" onsubmit="event.preventDefault();">
+                        <div class="input-group">
+                            <label for="blades-input">
+                                <i class="fa-solid fa-fan icon-accent"></i> Fan Blade Count
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="number" id="blades-input" name="blades" min="1" max="20" value="3" required>
+                                <span class="input-suffix">Blades</span>
+                            </div>
+                            <span class="input-help">Calculates RPM = pulses ÷ blades</span>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="radius-input">
+                                <i class="fa-solid fa-ruler-combined icon-accent"></i> Blade Tip Radius
+                            </label>
+                            <div class="radius-controls">
+                                <div class="input-wrapper">
+                                    <input type="number" id="radius-input" name="radius" min="0.1" step="0.1" value="10.0" required>
+                                </div>
+                                <select id="unit-select" name="unit" class="unit-select">
+                                    <option value="cm" selected>cm</option>
+                                    <option value="m">m</option>
+                                </select>
+                            </div>
+                            <span class="input-help">Required for peripheral velocity math</span>
+                        </div>
+                        
+                        <button type="submit" id="apply-config-btn" class="btn btn-primary">
+                            <i class="fa-solid fa-check"></i> Apply Settings
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Calculated Values Display Card -->
+                <div class="glass-card results-card">
+                    <div class="card-header">
+                        <h2>Speed Calculations</h2>
+                        <i class="fa-solid fa-calculator card-icon"></i>
+                    </div>
+                    
+                    <div class="metrics-grid">
+                        <!-- Metric Card: Speed km/h -->
+                        <div class="metric-block speed-kmh-block">
+                            <span class="metric-label">Tip Speed (km/h)</span>
+                            <div class="metric-value-wrapper">
+                                <span id="speed-kmh" class="digital-value-medium">0.0</span>
+                                <span class="metric-unit">km/h</span>
+                            </div>
+                            <div class="formula-info">
+                                <span>v = ω × r × 3.6</span>
+                            </div>
+                        </div>
+
+                        <!-- Metric Card: Speed m/s -->
+                        <div class="metric-block speed-ms-block">
+                            <span class="metric-label">Tip Speed (m/s)</span>
+                            <div class="metric-value-wrapper">
+                                <span id="speed-ms" class="digital-value-medium">0.0</span>
+                                <span class="metric-unit">m/s</span>
+                            </div>
+                            <div class="formula-info">
+                                <span>v = (RPM × 2πr) / 60</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Supplemental Data Stats -->
+                    <div class="stats-list">
+                        <div class="stat-item">
+                            <span class="stat-label"><i class="fa-solid fa-wave-square"></i> Raw Pulses / sec</span>
+                            <span id="pulses-value" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label"><i class="fa-solid fa-arrows-spin"></i> Circumference</span>
+                            <span id="circumference-value" class="stat-value">0.6283 m</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label"><i class="fa-solid fa-microchip"></i> System Mode</span>
+                            <span id="system-mode-badge" class="mode-badge mock-badge">Mock Mode</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Status Notification Overlay Toast -->
+        <div id="toast" class="toast hidden">
+            <span id="toast-message">Configuration applied!</span>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>&copy; 2026 Aerovane Telemetry Systems. Arduino SG90 & IR Sensor Integration.</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
